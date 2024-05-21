@@ -27,23 +27,23 @@ static void print_board(char grid[BOARD_SIZE][BOARD_SIZE]) {
 char check_win(char grid[BOARD_SIZE][BOARD_SIZE]) {
 	// check rows and columns
 	for (int i = 0; i < BOARD_SIZE; ++i) {
-		if (grid[i][0] != ' ' && grid[i][0] == grid[i][1] && grid[i][1] == grid[i][2])
+		if (grid[i][0] != '-' && grid[i][0] == grid[i][1] && grid[i][1] == grid[i][2])
 			return grid[i][0];
-		if (grid[0][i] != ' ' && grid[0][i] == grid[1][i] && grid[1][i] == grid[2][i])
+		if (grid[0][i] != '-' && grid[0][i] == grid[1][i] && grid[1][i] == grid[2][i])
 			return grid[0][i];
 	}
 
 	// check diagonals
-	if (grid[0][0] != ' ' && grid[0][0] == grid[1][1] && grid[1][1] == grid[2][2])
+	if (grid[0][0] != '-' && grid[0][0] == grid[1][1] && grid[1][1] == grid[2][2])
 		return grid[0][0];
-	if (grid[0][2] != ' ' && grid[0][2] == grid[1][1] && grid[1][1] == grid[2][0])
+	if (grid[0][2] != '-' && grid[0][2] == grid[1][1] && grid[1][1] == grid[2][0])
 		return grid[0][2];
 
 	// check for possible future moves
 	for (int row = 0; row < BOARD_SIZE; row++) {
 		for (int col = 0; col < BOARD_SIZE; col++) {
-			if (grid[row][col] == ' ') {
-				return ' ';
+			if (grid[row][col] == '-') {
+				return '-';
 			}
 		}
 	}
@@ -100,8 +100,7 @@ static std::array<sf::Vector2i, 2> check_click(sf::Vector2i click_boxes[BOARD_SI
 }
 
 static bool is_empty_cell(char grid[BOARD_SIZE][BOARD_SIZE], sf::Vector2i clicked_cell) {
-	if (grid[clicked_cell.y][clicked_cell.x] != ' ') {
-		std::cout << "Box @ (" << clicked_cell.x << ", " << clicked_cell.y << ") is not empty!" << std::endl;
+	if (grid[clicked_cell.y][clicked_cell.x] != '-') {
 		return false;
 	}
 
@@ -132,12 +131,30 @@ static sf::RectangleShape make_line(sf::Vector2f dimensions, sf::Vector2f positi
 	return rect;
 }
 
+void do_the_win_thing(sf::Text& winner_text, bool box_turn, bool& in_game) {
+	if (!in_game) {
+		winner_text.setString("No winner!");
+	}
+	else {
+		if (box_turn) {
+			winner_text.setString("Player 1 won!");
+		}
+		else {
+			winner_text.setString("Player 2 won!");
+		}
+	}
+
+	in_game = false;
+}
+
 int main() {
+	bool in_game = true;
+
 	// declare and initialize grid with rows
 	char grid[BOARD_SIZE][BOARD_SIZE] = 
-					  { {' ', ' ', ' '},
-						{' ', ' ', ' '},
-						{' ', ' ', ' '} };
+					  { {'-', '-', '-'},
+						{'-', '-', '-'},
+						{'-', '-', '-'} };
 
 	// declare vectors to hold the circles and boxes to be drawn each frame. 
 	std::vector<sf::RectangleShape> boxes;
@@ -153,16 +170,8 @@ int main() {
 		for (int j = 0; j < BOARD_SIZE; ++j) {
 			click_boxes[i][j][0] = sf::Vector2i(j * cellSizeX, i * cellSizeY); // Top left corner
 			click_boxes[i][j][1] = sf::Vector2i((j + 1) * cellSizeX, (i + 1) * cellSizeY); // Bottom right corner
-
-			std::cout << click_boxes[i][j][0].x << " " << click_boxes[i][j][0].y << std::endl;
-			std::cout << click_boxes[i][j][1].x << " " << click_boxes[i][j][1].y << std::endl;
-			std::cout << std::endl;
 		}
 	}
-
-	// print starting board
-	std::cout << "Starting board:" << std::endl;
-	print_board(grid);
 
 	// initialize a SFML window
 	sf::RenderWindow window(sf::VideoMode(WINDOW_WIDTH, WINDOW_HEIGHT), "Tic Tac Toe");
@@ -178,8 +187,28 @@ int main() {
 
 	bool box_turn = true;
 
+	sf::Font font;
+
+	if (!font.loadFromFile("Fonts/Roboto-Black.ttf")) {
+		std::cerr << "Failed to load font!" << std::endl;
+	}
+
+	unsigned int turn_text_size = 15;
+	sf::Text turn_text = sf::Text("Player 1's turn", font, turn_text_size);
+	turn_text.setPosition(sf::Vector2f(WINDOW_WIDTH / 2 - 50, WINDOW_HEIGHT - turn_text_size * 1.5));
+
+	unsigned int winner_text_size = 60;
+	sf::Text winner_text = sf::Text("Player 1 won!", font, winner_text_size);
+	winner_text.setPosition(sf::Vector2f(70, WINDOW_HEIGHT / 2.5 - winner_text_size));
+
+	unsigned int again_text_size = 30;
+	sf::Text again_text = sf::Text("Again? (ENTER)", font, again_text_size);
+	again_text.setPosition(sf::Vector2f(150, WINDOW_HEIGHT / 2 - again_text_size));
+
 	// runtime loop
 	while (window.isOpen()) {
+		window.setSize(sf::Vector2u(WINDOW_WIDTH, WINDOW_HEIGHT));
+
 		sf::Event event;
 		while (window.pollEvent(event)) {
 			if (event.type == sf::Event::Closed) {
@@ -190,65 +219,95 @@ int main() {
 		// clear the display window, render objects
 		window.clear();
 
-		window.draw(vertical_line1);
-		window.draw(vertical_line2);
+		if (in_game) {
+			window.draw(turn_text);
 
-		window.draw(horizontal_line1);
-		window.draw(horizontal_line2);
+			window.draw(vertical_line1);
+			window.draw(vertical_line2);
 
-		// draw calls for any circles and boxes that are present in the game
-		for (int index = 0; index < boxes.size(); index++) {
-			window.draw(boxes.at(index));
-		}
+			window.draw(horizontal_line1);
+			window.draw(horizontal_line2);
 
-		for (int index = 0; index < circles.size(); index++) {
-			window.draw(circles.at(index));
-		}
-
-		// check if button just pressed, call check_click to check the click location
-		if (sf::Mouse::isButtonPressed(sf::Mouse::Left) && ready_to_click) {
-			std::array<sf::Vector2i, 2> cell_and_mods = check_click(click_boxes, &window);
-
-			double mod_x = cell_and_mods[1].x;
-			double mod_y = cell_and_mods[1].y;
-
-			sf::Vector2i clicked_cell = cell_and_mods[0];
-
-			if (is_empty_cell(grid, clicked_cell)) {
-				sf::Vector2f position = sf::Vector2f(WINDOW_WIDTH * (mod_x / 6.0) - BOX_SIDE_LENGTH / 2.0, WINDOW_WIDTH * (mod_y / 6.0) - BOX_SIDE_LENGTH / 2.0);
-
-				if (box_turn) {
-					place_box(boxes, grid, position, clicked_cell);
-				}
-
-				else {
-					place_circle(circles, grid, position, clicked_cell);
-				}
-
-				char result = check_win(grid);
-				
-				if (result == 'X') {
-					std::cout << "Player 1 wins!";
-					return 0;
-				}
-				else if (result == 'O') {
-					std::cout << "Player 2 wins!";
-					return 0;
-				}
-				else if (result == 'N') {
-					std::cout << "No possible moves! No winner.";
-					return 0;
-				}
-
-				box_turn = !box_turn;
+			// draw calls for any circles and boxes that are present in the game
+			for (int index = 0; index < boxes.size(); index++) {
+				window.draw(boxes.at(index));
 			}
 
-			ready_to_click = false;
+			for (int index = 0; index < circles.size(); index++) {
+				window.draw(circles.at(index));
+			}
+
+			// check if button just pressed, call check_click to check the click location
+			if (sf::Mouse::isButtonPressed(sf::Mouse::Left) && ready_to_click) {
+				std::array<sf::Vector2i, 2> cell_and_mods = check_click(click_boxes, &window);
+
+				double mod_x = cell_and_mods[1].x;
+				double mod_y = cell_and_mods[1].y;
+
+				sf::Vector2i clicked_cell = cell_and_mods[0];
+
+				if (is_empty_cell(grid, clicked_cell)) {
+					sf::Vector2f position = sf::Vector2f(WINDOW_WIDTH * (mod_x / 6.0) - BOX_SIDE_LENGTH / 2.0, WINDOW_WIDTH * (mod_y / 6.0) - BOX_SIDE_LENGTH / 2.0);
+
+					if (box_turn) {
+						place_box(boxes, grid, position, clicked_cell);
+					}
+
+					else {
+						place_circle(circles, grid, position, clicked_cell);
+					}
+
+					char result = check_win(grid);
+
+					if (result == 'X') {
+						do_the_win_thing(winner_text, box_turn, in_game);
+					}
+					else if (result == 'O') {
+						do_the_win_thing(winner_text, box_turn, in_game);
+					}
+
+					else if (result == 'N') {
+						in_game = false;
+						do_the_win_thing(winner_text, box_turn, in_game);
+					}
+
+					box_turn = !box_turn;
+
+					if (box_turn) {
+						turn_text.setString("Player 1's turn");
+					}
+					else {
+						turn_text.setString("Player 2's turn");
+					}
+				}
+
+				ready_to_click = false;
+			}
+
+			else if (!sf::Mouse::isButtonPressed(sf::Mouse::Left) && !ready_to_click) {
+				ready_to_click = true;
+			}
+		}
+		else {
+			window.draw(winner_text);
+			window.draw(again_text);
+
+			if (sf::Keyboard::isKeyPressed(sf::Keyboard::Enter)) {
+				in_game = true;
+
+				// resets drawable object vectors
+				circles.clear();
+				boxes.clear();
+				
+				// resets board contents
+				for (int row = 0; row < BOARD_SIZE; row++) {
+					std::fill(std::begin(grid[row]), std::end(grid[row]), '-');
+				}
+
+				turn_text.setString("Player 1's turn");
+			}
 		}
 
-		else if (!sf::Mouse::isButtonPressed(sf::Mouse::Left) && !ready_to_click) {
-			ready_to_click = true;
-		}
 
 		window.display();
 	}
